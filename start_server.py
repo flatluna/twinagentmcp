@@ -32,9 +32,12 @@ async def health():
     """Health check endpoint."""
     return {"status": "healthy", "api_keys_configured": bool(os.getenv("API_KEYS"))}
 
-@app.get("/sse", tags=["MCP"], dependencies=[Depends(ensure_valid_api_key)])
+@app.get("/sse", tags=["MCP"])
 async def handle_sse(request: Request):
     """Handle SSE connections for MCP communication."""
+    # Validate API key
+    ensure_valid_api_key(request)
+    
     async with sse.connect_sse(request.scope, request.receive, request._send) as (
         read_stream,
         write_stream,
