@@ -26,7 +26,16 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: 🏗️ Build and deploy Container App
+    - name: � Create Azure Container Registry
+      run: |
+        az acr create \
+          --resource-group ${{ env.AZURE_GROUP_NAME }} \
+          --name twinagentregistry \
+          --sku Basic \
+          --location ${{ env.AZURE_LOCATION }} \
+          --admin-enabled true || echo "Registry might already exist"
+
+    - name: �🏗️ Build and deploy Container App
       uses: azure/container-apps-deploy-action@v1
       with:
         appSourcePath: ${{ github.workspace }}
