@@ -3,7 +3,7 @@ autogen-ext[tools]
 mcp
 python-dotenv
 openai
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.3
+fastapi==0.116.1
+uvicorn[standard]==0.32.0
+pydantic==2.11.7
 anyio>=4.5
