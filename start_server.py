@@ -19,8 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-sse = SseServerTransport("/messages/")
-app.router.routes.append(Mount("/messages", app=sse.handle_post_message))
+sse = SseServerTransport("/sse/")
+app.router.routes.append(Mount("/sse", app=sse.handle_post_message))
 
 @app.get("/")
 async def health_check():
@@ -32,23 +32,121 @@ async def health():
     """Health check endpoint."""
     return {"status": "healthy", "api_keys_configured": bool(os.getenv("API_KEYS"))}
 
-@app.get("/sse", tags=["MCP"])
-async def handle_sse(request: Request):
-    """Handle SSE connections for MCP communication."""
+@app.post("/mcp", tags=["MCP"])
+async def handle_mcp_post(request: Request):
+    """Handle MCP JSON-RPC requests via POST."""
     # Validate API key
     ensure_valid_api_key(request)
     
-    async with sse.connect_sse(request.scope, request.receive, request._send) as (
-        read_stream,
-        write_stream,
-    ):
-        init_options = mcp_simple_server.create_initialization_options()
-
-        await mcp_simple_server.run(
-            read_stream,
-            write_stream,
-            init_options,
-        )
+    # Get the JSON-RPC request
+    try:
+        json_data = await request.json()
+        print(f"📨 Received MCP request: {json_data}")
+        
+        # Create a simple response for testing
+        if json_data.get("method") == "initialize":
+            response = {
+                "jsonrpc": "2.0",
+                "id": json_data.get("id"),
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": {"listChanged": True}
+                    },
+                    "serverInfo": {
+                        "name": "simple-mcp-server",
+                        "version": "1.0.0"
+                    }
+                }
+            }
+            return response
+            
+        elif json_data.get("method") == "tools/list":
+            response = {
+                "jsonrpc": "2.0", 
+                "id": json_data.get("id"),
+                "result": {
+                    "tools": [
+                        {
+                            "name": "hello_world",
+                            "description": "Says hello to the world",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "add_numbers", 
+                            "description": "Add two numbers together",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "a": {"type": "number", "description": "First number"},
+                                    "b": {"type": "number", "description": "Second number"}
+                                },
+                                "required": ["a", "b"]
+                            }
+                        }
+                    ]
+                }
+            }
+            return response
+            
+        elif json_data.get("method") == "tools/call":
+            tool_name = json_data.get("params", {}).get("name")
+            arguments = json_data.get("params", {}).get("arguments", {})
+            
+            if tool_name == "hello_world":
+                result = "Hello, World! This is your MCP server running on Azure! 🌟"
+            elif tool_name == "add_numbers":
+                a = arguments.get("a", 0)
+                b = arguments.get("b", 0)
+                result = f"The sum of {a} + {b} = {a + b}"
+            else:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": json_data.get("id"),
+                    "error": {
+                        "code": -32601,
+                        "message": f"Unknown tool: {tool_name}"
+                    }
+                }
+            
+            response = {
+                "jsonrpc": "2.0",
+                "id": json_data.get("id"),
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": result
+                        }
+                    ]
+                }
+            }
+            return response
+            
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": json_data.get("id"),
+                "error": {
+                    "code": -32601,
+                    "message": f"Unknown method: {json_data.get('method')}"
+                }
+            }
+            
+    except Exception as e:
+        print(f"❌ Error processing MCP request: {e}")
+        return {
+            "jsonrpc": "2.0",
+            "id": json_data.get("id") if 'json_data' in locals() else None,
+            "error": {
+                "code": -32603,
+                "message": f"Internal error: {str(e)}"
+            }
+        }
 
 
 if __name__ == "__main__":
