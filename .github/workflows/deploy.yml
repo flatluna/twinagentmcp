@@ -31,6 +31,7 @@ jobs:
       with:
         appSourcePath: ${{ github.workspace }}
         dockerfilePath: Dockerfile
+        acrName: twinagentregistry
         containerAppName: ${{ env.AZURE_CONTAINERAPP_NAME }}
         resourceGroup: ${{ env.AZURE_GROUP_NAME }}
         containerAppEnvironment: ${{ env.AZURE_CONTAINER_ENVIRONMENT }}
