@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import argparse
 import os
 
-app = FastAPI(docs_url=None, redoc_url=None, dependencies=[Depends(ensure_valid_api_key)])
+# Create app without global API key dependency for health endpoints
+app = FastAPI(docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,9 +30,9 @@ async def health_check():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy"}
+    return {"status": "healthy", "api_keys_configured": bool(os.getenv("API_KEYS"))}
 
-@app.get("/sse", tags=["MCP"])
+@app.get("/sse", tags=["MCP"], dependencies=[Depends(ensure_valid_api_key)])
 async def handle_sse(request: Request):
     """Handle SSE connections for MCP communication."""
     async with sse.connect_sse(request.scope, request.receive, request._send) as (
@@ -54,6 +55,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Use environment variable for port if available (for Azure deployment)
-    port = int(os.getenv("PORT", args.port))
+    # Azure Container Apps can use different environment variables for port
+    port = int(os.getenv("PORT", os.getenv("WEBSITES_PORT", args.port)))
     
+    print(f"Starting server on {args.host}:{port}")
     uvicorn.run(app, host=args.host, port=port)
