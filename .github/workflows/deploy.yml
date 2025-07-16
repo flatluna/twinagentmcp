@@ -12,6 +12,7 @@ env:
   AZURE_GROUP_NAME: Agents
   AZURE_CONTAINER_ENVIRONMENT: twinagentenv
   AZURE_LOCATION: eastus
+  REGISTRY_NAME: twinagentregistry
 
 jobs:
   build-and-deploy:
@@ -26,29 +27,65 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: � Create Azure Container Registry
+    - name: 🏭 Setup Azure Container Registry
       run: |
+        # Create ACR with admin enabled
         az acr create \
           --resource-group ${{ env.AZURE_GROUP_NAME }} \
-          --name twinagentregistry \
+          --name ${{ env.REGISTRY_NAME }} \
           --sku Basic \
           --location ${{ env.AZURE_LOCATION }} \
           --admin-enabled true || echo "Registry might already exist"
+        
+        # Enable admin user
+        az acr update --name ${{ env.REGISTRY_NAME }} --admin-enabled true
 
-    - name: �🏗️ Build and deploy Container App
-      uses: azure/container-apps-deploy-action@v1
-      with:
-        appSourcePath: ${{ github.workspace }}
-        dockerfilePath: Dockerfile
-        acrName: twinagentregistry
-        containerAppName: ${{ env.AZURE_CONTAINERAPP_NAME }}
-        resourceGroup: ${{ env.AZURE_GROUP_NAME }}
-        containerAppEnvironment: ${{ env.AZURE_CONTAINER_ENVIRONMENT }}
-        location: ${{ env.AZURE_LOCATION }}
-        environmentVariables: >
-          API_KEYS=${{ secrets.MCP_API_KEY }}
-        targetPort: 8000
-        ingress: external
+    - name: 🔑 Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.REGISTRY_NAME }}
+
+    - name: 🐳 Build and push Docker image
+      run: |
+        # Build image
+        docker build -t ${{ env.REGISTRY_NAME }}.azurecr.io/twinagentservices:latest .
+        
+        # Push image
+        docker push ${{ env.REGISTRY_NAME }}.azurecr.io/twinagentservices:latest
+
+    - name: 🌐 Create Container App Environment
+      run: |
+        az containerapp env create \
+          --name ${{ env.AZURE_CONTAINER_ENVIRONMENT }} \
+          --resource-group ${{ env.AZURE_GROUP_NAME }} \
+          --location ${{ env.AZURE_LOCATION }} || echo "Environment might already exist"
+
+    - name: 🚀 Deploy Container App
+      run: |
+        # Get ACR admin credentials
+        ACR_USERNAME=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query username --output tsv)
+        ACR_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value --output tsv)
+        
+        # Create/Update Container App
+        az containerapp create \
+          --name ${{ env.AZURE_CONTAINERAPP_NAME }} \
+          --resource-group ${{ env.AZURE_GROUP_NAME }} \
+          --environment ${{ env.AZURE_CONTAINER_ENVIRONMENT }} \
+          --image ${{ env.REGISTRY_NAME }}.azurecr.io/twinagentservices:latest \
+          --target-port 8000 \
+          --ingress external \
+          --registry-server ${{ env.REGISTRY_NAME }}.azurecr.io \
+          --registry-username $ACR_USERNAME \
+          --registry-password $ACR_PASSWORD \
+          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}" \
+          --cpu 0.25 \
+          --memory 0.5Gi \
+          --min-replicas 1 \
+          --max-replicas 1 || \
+        az containerapp update \
+          --name ${{ env.AZURE_CONTAINERAPP_NAME }} \
+          --resource-group ${{ env.AZURE_GROUP_NAME }} \
+          --image ${{ env.REGISTRY_NAME }}.azurecr.io/twinagentservices:latest \
+          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}"
 
     - name: 🧪 Test deployment
       run: |
