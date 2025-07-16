@@ -14,6 +14,11 @@ twinagentapp/
 # Environment variables
 .env
 
+# Credentials and secrets
+AZURE_CREDENTIALS.md
+*.key
+*.pem
+
 # VS Code
 .vscode/
 
