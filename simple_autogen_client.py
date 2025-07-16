@@ -56,6 +56,7 @@ You are a friendly Hello Agent with access to MCP server functions through speci
 Available MCP Server Functions:
 1. When user asks to say hello/greet someone, respond with: "I'll use the MCP server to say hello!" then call the greeting function.
 2. When user asks to add numbers, respond with: "I'll use the MCP server to calculate that!" then call the math function.
+3. When user asks for the time/date, respond with: "I'll use the MCP server to get the current date and time!" then call the datetime function.
 
 You have access to these capabilities but need to be instructed when to use them.
 Always mention that you're using the MCP server when appropriate.
@@ -73,9 +74,10 @@ class MCPServerManager:
     def __init__(self):
         self.hello_function = mcp_hello_tool_function
         self.math_function = mcp_add_numbers_tool_function
+        self.datetime_function = mcp_getdatetime_tool_function
     
     async def demonstrate_functions(self):
-        """Demonstrate both MCP functions."""
+        """Demonstrate all MCP functions."""
         print("🧪 Testing MCP server integration directly...")
         
         # Test hello function
@@ -85,6 +87,10 @@ class MCPServerManager:
         # Test math function
         test_result2 = await self.math_function(25, 17)
         print(f"🔢 Math MCP call result: {test_result2}")
+        
+        # Test datetime function
+        test_result3 = await self.datetime_function("readable")
+        print(f"📅 Datetime MCP call result: {test_result3}")
         print("")
         
         return test_result1, test_result2
@@ -226,6 +232,73 @@ async def mcp_add_numbers_tool_function(a: float, b: float) -> str:
         
     except Exception as e:
         return f"Error calling MCP server for math: {e}"
+
+
+async def mcp_getdatetime_tool_function(format_type: str = "readable") -> str:
+    """
+    ✨ DATETIME FUNCTION INJECTION POINT! ✨
+    This function connects AutoGen agents to the MCP server's getdatetime tool.
+    
+    When an AutoGen agent calls this function, it will:
+    1. Connect to the MCP server
+    2. Call the server's getdatetime function
+    3. Return the datetime result to the agent
+    """
+    print(f"📅 AutoGen agent is calling MCP server to get datetime with format: {format_type}")
+    
+    try:
+        # Start the MCP server process
+        process = await asyncio.create_subprocess_exec(
+            "python", "simple_mcp_server.py",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        # Initialize the server
+        init_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "autogen-client", "version": "1.0.0"}
+            }
+        }
+        
+        process.stdin.write((json.dumps(init_request) + "\n").encode())
+        await process.stdin.drain()
+        await process.stdout.readline()  # Read init response
+        
+        # Call the getdatetime tool on MCP server
+        tool_request = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "getdatetime",
+                "arguments": {"format": format_type}
+            }
+        }
+        
+        process.stdin.write((json.dumps(tool_request) + "\n").encode())
+        await process.stdin.drain()
+        
+        # Read response from MCP server
+        response_line = await process.stdout.readline()
+        response = json.loads(response_line.decode().strip())
+        
+        # Clean up
+        process.terminate()
+        await process.wait()
+        
+        result = response['result']['content'][0]['text']
+        print(f"🕒 MCP Server returned: {result}")
+        return result
+        
+    except Exception as e:
+        return f"Error calling MCP server for datetime: {e}"
 
 
 async def main() -> None:

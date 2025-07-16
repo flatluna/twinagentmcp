@@ -1,14 +1,13 @@
 # 🤖 TwinAgent MCP - AutoGen + Model Context Protocol
 
-A powerful integration of Microsoft AutoGen with Model Context Protocol (MCP) for Azure deployment.
+A production-ready integration of Microsoft AutoGen with Model Context Protocol (MCP) deployed on Azure.
 
 ## 🎯 What This Does
 
-This project demonstrates how to:
-- Create an MCP server with custom tools
-- Integrate MCP tools with AutoGen agents
-- Deploy MCP servers to Azure for remote access
-- Use GitHub Actions for automated deployment
+- **MCP Server**: Custom tools (hello_world, add_numbers) accessible via JSON-RPC
+- **AutoGen Integration**: AI agents can use MCP tools for enhanced capabilities  
+- **Azure Deployment**: Cloud-hosted MCP server with API authentication
+- **CI/CD Pipeline**: Automated GitHub Actions deployment to Azure Container Apps
 
 ## 🏗️ Architecture
 
@@ -21,16 +20,16 @@ This project demonstrates how to:
          │                       │                       │
          │                       │                       │
     ┌────▼────┐             ┌────▼────┐             ┌────▼────┐
-    │ Azure   │             │   MCP   │             │  HTTP/  │
-    │ OpenAI  │             │ Server  │             │   SSE   │
+    │ Azure   │             │   MCP   │             │  JSON-  │
+    │ OpenAI  │             │ Server  │             │   RPC   │
     └─────────┘             └─────────┘             └─────────┘
 ```
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+### 1. Setup Local Environment
 ```bash
-git clone <your-repo>
+git clone https://github.com/flatluna/twinagentmcp.git
 cd TwinagentMCP
 python -m venv twinagentapp
 .\twinagentapp\Scripts\activate
@@ -38,63 +37,83 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment
-Create `.env` file:
+Copy `.env.example` to `.env` and update values:
 ```env
-AZURE_OPENAI_ENDPOINT=https://flatbitai.openai.azure.com/
-AZURE_OPENAI_API_KEY=6d2ef19219dd49689b0444b3f0babe1c
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt4mini
+AZURE_OPENAI_ENDPOINT=your-endpoint
+AZURE_OPENAI_API_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment
 AZURE_OPENAI_API_VERSION=2024-02-01
-MCP_API_KEYS=B509918774DDE22A5BF94EDB4F145CB6E06F1CBCCC49D492D27FFD4AC3667A71
+MCP_API_KEYS=your-api-key
 ```
 
 ### 3. Test Locally
 ```bash
 # Test MCP server directly
-python test_mcp_client.py
+python simple_mcp_server.py
 
-# Test web wrapper
+# Test web wrapper locally  
 python start_server.py
-# In another terminal:
-python test_mcp_connection.py
 
 # Test AutoGen integration
 python simple_autogen_client.py
 ```
-
-### 4. Deploy to Azure
-Follow [GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md) for automated deployment.
 
 ## 📁 Project Structure
 
 ```
 TwinagentMCP/
 ├── 📄 simple_mcp_server.py        # Core MCP server with tools
+├── 📄 start_server.py             # FastAPI wrapper for deployment  
 ├── 📄 simple_autogen_client.py    # AutoGen client with MCP integration
-├── 📄 start_server.py             # FastAPI wrapper for deployment
 ├── 📄 api_key_auth.py             # Authentication middleware
-├── 📄 test_mcp_client.py          # Direct MCP testing
-├── 📄 test_mcp_connection.py      # Web MCP testing
 ├── 📄 requirements.txt            # Python dependencies
 ├── 📄 Dockerfile                  # Container configuration
 ├── 📄 .env                        # Environment variables
-├── 📁 .github/workflows/          # GitHub Actions
+├── 📁 .github/workflows/          # CI/CD Pipeline
 │   └── 📄 deploy.yml              # Deployment workflow
-├── 📄 GITHUB_ACTIONS_SETUP.md     # Deployment guide
-└── 📄 README.md                   # This file
+└── 📄 README.md                   # Documentation
 ```
 
 ## 🛠️ Available MCP Tools
 
 ### 1. Hello World
 - **Function**: `hello_world`
-- **Purpose**: Basic greeting with personalization
-- **Example**: `Hello, World! Welcome to the MCP server, Alice!`
+- **Purpose**: Basic greeting and status check
+- **Example**: `Hello, World! This is your MCP server running on Azure! 🌟`
 
-### 2. Add Numbers
+### 2. Add Numbers  
 - **Function**: `add_numbers`
-- **Purpose**: Mathematical addition
 - **Parameters**: `a` (number), `b` (number)
-- **Example**: `add_numbers(5, 3)` → `8`
+- **Purpose**: Mathematical addition
+- **Example**: `add_numbers(944, 444)` → `1388`
+
+### 3. Get DateTime  
+- **Function**: `getdatetime`
+- **Parameters**: `format` (string, optional) - "readable" or "iso"
+- **Purpose**: Get current date and time
+- **Example**: `getdatetime("readable")` → `Wednesday, July 16, 2025 at 05:13:27 PM`
+
+## 🌐 Cloud Deployment
+
+**Production URL**: https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io
+
+### Test Cloud MCP Server
+```bash
+# Health check
+curl https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io/health
+
+# Call add_numbers function
+curl -X POST https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io/mcp \
+  -H "x-api-key: B509918774DDE22A5BF94EDB4F145CB6E06F1CBCCC49D492D27FFD4AC3667A71" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_numbers","arguments":{"a":944,"b":444}}}'
+
+# Call getdatetime function  
+curl -X POST https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io/mcp \
+  -H "x-api-key: B509918774DDE22A5BF94EDB4F145CB6E06F1CBCCC49D492D27FFD4AC3667A71" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"getdatetime","arguments":{"format":"readable"}}}'
+```
 
 ## 🔧 Adding New Tools
 
@@ -103,7 +122,7 @@ To add a new MCP tool:
 1. **Define the tool** in `simple_mcp_server.py`:
 ```python
 TOOLS.append({
-    "name": "your_tool_name",
+    "name": "your_tool_name", 
     "description": "What your tool does",
     "inputSchema": {
         "type": "object",
@@ -115,32 +134,48 @@ TOOLS.append({
 })
 ```
 
-2. **Implement the function**:
+2. **Implement the handler** in `start_server.py`:
 ```python
-async def handle_call_tool(self, request):
-    # ... existing code ...
-    elif tool_name == "your_tool_name":
-        param1 = arguments.get("param1")
-        result = your_function_logic(param1)
-        return create_call_tool_result([{"type": "text", "text": result}])
+elif tool_name == "your_tool_name":
+    param1 = arguments.get("param1")
+    result = f"Processed: {param1}"
+    return JSONResponse({
+        "jsonrpc": "2.0",
+        "id": data["id"], 
+        "result": {"content": [{"type": "text", "text": result}]}
+    })
 ```
 
-3. **Test locally**, then deploy!
+3. **Deploy automatically** via Git push (GitHub Actions handles the rest)
 
-## 🚀 Deployment Options
+## ⚡ Quick Commands
 
-### Option 1: GitHub Actions (Recommended)
-- Automatic deployment on code push
-- Follows [GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md)
-- Handles Azure Container Apps setup
-
-### Option 2: Manual Azure CLI
 ```bash
-az containerapp up \
-  --name twinagentservices \
-  --source . \
-  --resource-group twinagent-rg \
-  --environment twinagent-env \
+# Local testing
+python simple_mcp_server.py
+python start_server.py  
+python simple_autogen_client.py
+
+# Deploy to Azure  
+git add . && git commit -m "Update" && git push
+
+# Test cloud deployment
+curl https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io/health
+```
+
+## 📊 Status
+
+- ✅ **MCP Server**: Working with 2 tools
+- ✅ **Local Testing**: Fully functional  
+- ✅ **Azure Deployment**: Live and operational
+- ✅ **CI/CD Pipeline**: Automated GitHub Actions
+- ✅ **API Authentication**: Secured with API keys
+- 🔄 **AutoGen Integration**: Ready for enhancement
+
+---
+
+**Live MCP Server**: https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io  
+**Repository**: https://github.com/flatluna/twinagentmcp.git
   --ingress external \
   --target-port 8000
 ```

@@ -14,6 +14,22 @@ twinagentapp/
 # Environment variables
 .env
 
+# Testing and development files
+test_*.py
+demo.py
+inspect*.py
+compare*.py
+check*.py
+
+# Documentation drafts
+*.md
+!README.md
+
+# Deployment scripts
+deploy_*.sh
+deploy_*.ps1
+*.example
+
 # Credentials and secrets
 AZURE_CREDENTIALS.md
 *.key
@@ -40,14 +56,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Distribution / packaging
-.Python
 build/
 develop-eggs/
 dist/

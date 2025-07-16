@@ -9,6 +9,7 @@ import json
 import sys
 from typing import Any, Dict, List
 import asyncio
+from datetime import datetime
 
 
 class SimpleMCPServer:
@@ -46,6 +47,20 @@ class SimpleMCPServer:
                         }
                     },
                     "required": ["a", "b"]
+                }
+            },
+            "getdatetime": {
+                "name": "getdatetime",
+                "description": "Get the current date and time",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "format": {
+                            "type": "string",
+                            "description": "Optional format for the datetime (e.g., 'iso', 'readable')",
+                            "default": "readable"
+                        }
+                    }
                 }
             }
         }
@@ -119,6 +134,31 @@ class SimpleMCPServer:
                             {
                                 "type": "text",
                                 "text": response_text
+                            }
+                        ]
+                    }
+                }
+            
+            elif tool_name == "getdatetime":
+                # Get the format preference
+                format_type = arguments.get("format", "readable")
+                
+                # Get current datetime
+                now = datetime.now()
+                
+                if format_type == "iso":
+                    result_text = now.isoformat()
+                else:  # readable format
+                    result_text = now.strftime("%A, %B %d, %Y at %I:%M:%S %p")
+                
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Current date and time: {result_text}"
                             }
                         ]
                     }

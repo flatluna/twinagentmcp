@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Request, Depends
 from mcp.server.sse import SseServerTransport
 from starlette.routing import Mount
-from simple_mcp_server_wrapper import mcp_simple_server
 from api_key_auth import ensure_valid_api_key
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import argparse
 import os
+from datetime import datetime
 
 # Create app without global API key dependency for health endpoints
 app = FastAPI(docs_url=None, redoc_url=None)
@@ -87,6 +87,17 @@ async def handle_mcp_post(request: Request):
                                 },
                                 "required": ["a", "b"]
                             }
+                        },
+                        {
+                            "name": "getdatetime",
+                            "description": "Get the current date and time",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "format": {"type": "string", "description": "Format: 'iso' or 'readable'"}
+                                },
+                                "required": []
+                            }
                         }
                     ]
                 }
@@ -103,6 +114,14 @@ async def handle_mcp_post(request: Request):
                 a = arguments.get("a", 0)
                 b = arguments.get("b", 0)
                 result = f"The sum of {a} + {b} = {a + b}"
+            elif tool_name == "getdatetime":
+                format_type = arguments.get("format", "readable")
+                now = datetime.now()
+                if format_type == "iso":
+                    result_text = now.isoformat()
+                else:  # readable format
+                    result_text = now.strftime("%A, %B %d, %Y at %I:%M:%S %p")
+                result = f"Current date and time: {result_text}"
             else:
                 return {
                     "jsonrpc": "2.0",
