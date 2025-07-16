@@ -20,5 +20,5 @@ COPY . .
 EXPOSE 8000
 
 # Run the application
-# First test imports, then start the server
-CMD ["sh", "-c", "python test_imports.py && uvicorn start_server:app --host 0.0.0.0 --port 8000"]
+# Start the server directly
+CMD ["uvicorn", "start_server:app", "--host", "0.0.0.0", "--port", "8000"]
