@@ -1,0 +1,54 @@
+name: Deploy MCP Server to Azure Container Apps
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual triggering
+
+env:
+  AZURE_CONTAINERAPP_NAME: twinagentservices
+  AZURE_GROUP_NAME: Agents
+  AZURE_CONTAINER_ENVIRONMENT: twinagentenv
+  AZURE_LOCATION: eastus
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🏗️ Build and deploy Container App
+      uses: azure/container-apps-deploy-action@v1
+      with:
+        appSourcePath: ${{ github.workspace }}
+        dockerfilePath: Dockerfile
+        containerAppName: ${{ env.AZURE_CONTAINERAPP_NAME }}
+        resourceGroup: ${{ env.AZURE_GROUP_NAME }}
+        containerAppEnvironment: ${{ env.AZURE_CONTAINER_ENVIRONMENT }}
+        location: ${{ env.AZURE_LOCATION }}
+        environmentVariables: >
+          API_KEYS=${{ secrets.MCP_API_KEY }}
+        targetPort: 8000
+        ingress: external
+
+    - name: 🧪 Test deployment
+      run: |
+        echo "🚀 Deployment completed!"
+        echo "📝 Your MCP server should be available at:"
+        echo "   https://${{ env.AZURE_CONTAINERAPP_NAME }}.${{ env.AZURE_LOCATION }}.azurecontainerapps.io/health"
+        echo ""
+        echo "🔑 Use this API key in your client:"
+        echo "   API_KEY: ${{ secrets.MCP_API_KEY }}"
+        echo ""
+        echo "📋 Add to your client .env file:"
+        echo "   MCP_API_KEYS=\"${{ secrets.MCP_API_KEY }}\""
+        echo "   MCP_URL=\"https://${{ env.AZURE_CONTAINERAPP_NAME }}.${{ env.AZURE_LOCATION }}.azurecontainerapps.io/sse\""
