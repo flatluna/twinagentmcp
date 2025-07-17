@@ -10,12 +10,24 @@ import sys
 from typing import Any, Dict, List
 import asyncio
 from datetime import datetime
+import os
+try:
+    from azure.cosmos import CosmosClient, PartitionKey
+    from azure.cosmos.exceptions import CosmosResourceExistsError, CosmosResourceNotFoundError
+    COSMOS_AVAILABLE = True
+except ImportError:
+    COSMOS_AVAILABLE = False
 
 
 class SimpleMCPServer:
     """A simple MCP server that provides a hello world tool."""
     
     def __init__(self):
+        self.cosmos_client = None
+        self.database = None
+        self.container = None
+        self._initialize_cosmos_db()
+        
         self.tools = {
             "hello_world": {
                 "name": "hello_world",
@@ -62,8 +74,82 @@ class SimpleMCPServer:
                         }
                     }
                 }
+            },
+            "save_twin_info": {
+                "name": "save_twin_info",
+                "description": "Save Twin information to Cosmos DB",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "firstName": {
+                            "type": "string",
+                            "description": "The first name of the Twin"
+                        },
+                        "lastName": {
+                            "type": "string",
+                            "description": "The last name of the Twin"
+                        },
+                        "email": {
+                            "type": "string",
+                            "description": "The email address of the Twin (used as ID)"
+                        },
+                        "telephoneNumber": {
+                            "type": "string",
+                            "description": "The telephone number of the Twin"
+                        },
+                        "countryId": {
+                            "type": "string",
+                            "description": "The country ID for partitioning"
+                        }
+                    },
+                    "required": ["firstName", "lastName", "email", "telephoneNumber", "countryId"]
+                }
             }
         }
+    
+    def _initialize_cosmos_db(self):
+        """Initialize Cosmos DB client and database/container."""
+        if not COSMOS_AVAILABLE:
+            print("Warning: Azure Cosmos DB SDK not available. Twin storage functionality disabled.", file=sys.stderr)
+            return
+            
+        try:
+            # Get Cosmos DB configuration from environment variables
+            cosmos_endpoint = os.getenv("COSMOS_ENDPOINT")
+            cosmos_key = os.getenv("COSMOS_KEY")
+            
+            if not cosmos_endpoint or not cosmos_key:
+                print("Warning: COSMOS_ENDPOINT and COSMOS_KEY environment variables not set. Twin storage functionality disabled.", file=sys.stderr)
+                return
+                
+            # Initialize the Cosmos client
+            self.cosmos_client = CosmosClient(cosmos_endpoint, cosmos_key)
+            
+            # Create database if it doesn't exist
+            database_name = "TwinHumanDB"
+            try:
+                self.database = self.cosmos_client.create_database(id=database_name)
+            except CosmosResourceExistsError:
+                self.database = self.cosmos_client.get_database_client(database_name)
+            
+            # Create container if it doesn't exist
+            container_name = "TwinHumanContainer"
+            try:
+                # Don't set throughput for serverless accounts
+                self.container = self.database.create_container(
+                    id=container_name,
+                    partition_key=PartitionKey(path="/CountryID")
+                )
+            except CosmosResourceExistsError:
+                self.container = self.database.get_container_client(container_name)
+                
+            print("Successfully initialized Cosmos DB for Twin storage.", file=sys.stderr)
+            
+        except Exception as e:
+            print(f"Failed to initialize Cosmos DB: {str(e)}", file=sys.stderr)
+            self.cosmos_client = None
+            self.database = None
+            self.container = None
     
     async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Handle incoming MCP requests."""
@@ -163,6 +249,77 @@ class SimpleMCPServer:
                         ]
                     }
                 }
+            
+            elif tool_name == "save_twin_info":
+                # Check if Cosmos DB is available
+                if not self.container:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32603,
+                            "message": "Cosmos DB not available. Please check configuration."
+                        }
+                    }
+                
+                try:
+                    # Extract Twin information
+                    firstName = arguments.get("firstName")
+                    lastName = arguments.get("lastName") 
+                    email = arguments.get("email")
+                    telephoneNumber = arguments.get("telephoneNumber")
+                    countryId = arguments.get("countryId")
+                    
+                    # Validate required fields
+                    if not all([firstName, lastName, email, telephoneNumber, countryId]):
+                        return {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "error": {
+                                "code": -32602,
+                                "message": "Missing required fields: firstName, lastName, email, telephoneNumber, countryId"
+                            }
+                        }
+                    
+                    # Create Twin document with proper structure
+                    twin_document = {
+                        "id": email,  # Use email as the unique ID
+                        "CountryID": countryId,  # Partition key
+                        "Profile": {
+                            "firstName": firstName,
+                            "lastName": lastName,
+                            "email": email,
+                            "telephoneNumber": telephoneNumber
+                        },
+                        "createdAt": datetime.now().isoformat(),
+                        "lastModified": datetime.now().isoformat()
+                    }
+                    
+                    # Save to Cosmos DB
+                    response = self.container.upsert_item(body=twin_document)
+                    
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"Successfully saved Twin information for {firstName} {lastName} (ID: {email}) in country {countryId}"
+                                }
+                            ]
+                        }
+                    }
+                    
+                except Exception as e:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32603,
+                            "message": f"Failed to save Twin information: {str(e)}"
+                        }
+                    }
             
             else:
                 return {

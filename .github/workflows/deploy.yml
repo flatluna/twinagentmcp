@@ -76,7 +76,7 @@ jobs:
           --registry-server ${{ env.REGISTRY_NAME }}.azurecr.io \
           --registry-username $ACR_USERNAME \
           --registry-password $ACR_PASSWORD \
-          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}" \
+          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}" COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" COSMOS_KEY="${{ secrets.COSMOS_KEY }}" \
           --cpu 0.25 \
           --memory 0.5Gi \
           --min-replicas 1 \
@@ -85,7 +85,7 @@ jobs:
           --name ${{ env.AZURE_CONTAINERAPP_NAME }} \
           --resource-group ${{ env.AZURE_GROUP_NAME }} \
           --image ${{ env.REGISTRY_NAME }}.azurecr.io/twinagentservices:latest \
-          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}"
+          --env-vars API_KEYS="${{ secrets.MCP_API_KEY }}" COSMOS_ENDPOINT="${{ secrets.COSMOS_ENDPOINT }}" COSMOS_KEY="${{ secrets.COSMOS_KEY }}"
 
     - name: 🧪 Test deployment
       run: |

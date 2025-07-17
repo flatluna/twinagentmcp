@@ -4,7 +4,7 @@ A production-ready integration of Microsoft AutoGen with Model Context Protocol 
 
 ## 🎯 What This Does
 
-- **MCP Server**: Custom tools (hello_world, add_numbers) accessible via JSON-RPC
+- **MCP Server**: Custom tools (hello_world, add_numbers, getdatetime, save_twin_info) accessible via JSON-RPC
 - **AutoGen Integration**: AI agents can use MCP tools for enhanced capabilities  
 - **Azure Deployment**: Cloud-hosted MCP server with API authentication
 - **CI/CD Pipeline**: Automated GitHub Actions deployment to Azure Container Apps
@@ -93,6 +93,27 @@ TwinagentMCP/
 - **Purpose**: Get current date and time
 - **Example**: `getdatetime("readable")` → `Wednesday, July 16, 2025 at 05:13:27 PM`
 
+### 4. Save Twin Information  
+- **Function**: `save_twin_info`
+- **Parameters**: 
+  - `firstName` (string, required) - The first name of the Twin
+  - `lastName` (string, required) - The last name of the Twin
+  - `email` (string, required) - The email address of the Twin (used as ID)
+  - `telephoneNumber` (string, required) - The telephone number of the Twin
+  - `countryId` (string, required) - The country ID for partitioning
+- **Purpose**: Save Twin information to Azure Cosmos DB
+- **Database**: TwinHumanDb
+- **Container**: TwinHumanContainer  
+- **Partition**: countryId
+- **Example**: `save_twin_info("John", "Doe", "john.doe@example.com", "+1-555-0123", "US")` → `Successfully saved Twin information for John Doe (ID: john.doe@example.com) in country US`  
+  - `email` (string, required) - The email address (used as unique ID)
+  - `telephoneNumber` (string, required) - The telephone number
+  - `countryId` (string, required) - The country ID for partitioning
+- **Purpose**: Save Twin information to Azure Cosmos DB
+- **Database**: TwinHumanDb / TwinHumanContainer
+- **Example**: Saves Twin with timestamp and returns confirmation message
+- **Requirements**: COSMOS_ENDPOINT and COSMOS_KEY environment variables must be set
+
 ## 🌐 Cloud Deployment
 
 **Production URL**: https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io
@@ -113,6 +134,12 @@ curl -X POST https://twinagentservices.politepond-2f6f686d.eastus.azurecontainer
   -H "x-api-key: B509918774DDE22A5BF94EDB4F145CB6E06F1CBCCC49D492D27FFD4AC3667A71" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"getdatetime","arguments":{"format":"readable"}}}'
+
+# Call save_twin_info function (requires Cosmos DB setup)
+curl -X POST https://twinagentservices.politepond-2f6f686d.eastus.azurecontainerapps.io/mcp \
+  -H "x-api-key: B509918774DDE22A5BF94EDB4F145CB6E06F1CBCCC49D492D27FFD4AC3667A71" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"save_twin_info","arguments":{"firstName":"John","lastName":"Doe","email":"john.doe@example.com","telephoneNumber":"+1-555-123-4567","countryId":"US"}}}'
 ```
 
 ## 🔧 Adding New Tools
